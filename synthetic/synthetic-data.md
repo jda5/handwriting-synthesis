@@ -46,8 +46,10 @@ uv run python -m synthetic.generate_text --seed 42
 uv run python -m synthetic.render_images --seed 42
 ```
 
-Images land in `data/synthetic/images` and their labels (text, source and font) in
-`data/synthetic/labels.json`. The fonts' rejected glyphs live in `fonts.REJECTED`; it is the
+Images land in `data/synthetic/images` and their labels (text, source, font and the box around
+each word) in `data/synthetic/labels.json`. `notebooks/07-inksight-synthetic-strokes.ipynb` then
+derenders every word with InkSight, using those boxes instead of OCR, and saves the strokes to
+`data/cleaned/synthetic-<timestamp>`. The fonts' rejected glyphs live in `fonts.REJECTED`; it is the
 natural place to feed in Jev's legibility assessments.
 
 The texts land in `data/synthetic/texts.json`, keyed by source, and the script prints how many

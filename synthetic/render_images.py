@@ -1,7 +1,8 @@
 """
 Renders every text in `data/synthetic/texts.json` in a randomly chosen font
 that draws all of its characters. The images go to `data/synthetic/images`
-and their labels to `data/synthetic/labels.json`. Run from the project root:
+and their labels to `data/synthetic/labels.json`, with the box around each
+word so the words can be cut out again without OCR. Run from the project root:
 
     uv run python -m synthetic.render_images --seed 42
 """
@@ -37,9 +38,16 @@ def main(seed: int) -> None:
 
             font = rng.choice(capable)
             image = f"{source}-{i:04d}.png"
-            render_text(text, font, rng).save(IMAGES_DIR / image)
+            rendering, word_boxes = render_text(text, font, rng)
+            rendering.save(IMAGES_DIR / image)
             labels.append(
-                {"image": image, "text": text, "source": source, "font": font.name}
+                {
+                    "image": image,
+                    "text": text,
+                    "source": source,
+                    "font": font.name,
+                    "word_boxes": word_boxes,
+                }
             )
 
     path = SYNTHETIC_DIR / "labels.json"

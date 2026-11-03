@@ -10,6 +10,9 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from synthetic.fonts import Font
 
+# A word's bounding box in pixels: left, top, right, bottom
+Box = tuple[int, int, int, int]
+
 # The gap, as a fraction of the font size, left either side of a symbol in a
 # joined-up font
 PEN_LIFT = 0.1
@@ -36,6 +39,10 @@ def lifts_pen(char: str) -> bool:
     return not char.isalnum() and char not in " '\""
 
 
+def union(a: Box, b: Box) -> Box:
+    return min(a[0], b[0]), min(a[1], b[1]), max(a[2], b[2]), max(a[3], b[3])
+
+
 def render_text(
     text: str,
     font: Font,
@@ -43,9 +50,12 @@ def render_text(
     jitter: Jitter = Jitter(),
     size: int = 64,
     padding: int = 20,
-) -> Image.Image:
+) -> tuple[Image.Image, list[Box]]:
     """
     Draws `text` in black on a white image cropped to the ink plus `padding`.
+
+    Returns the image and the box around the ink of each of the text's words,
+    as split by `text.split()`, so the words can be cut out again without OCR.
 
     Each glyph is drawn on its own tile, scaled and rotated about its left
     baseline point, then pasted at its usual position, nudged along and across
@@ -68,6 +78,7 @@ def render_text(
     canvas = Image.new("L", (width, tile), 0)
 
     drift = 0.0
+    boxes: list[Box] = []
     for i, char in enumerate(text):
         lift = PEN_LIFT * size if font.joined and lifts_pen(char) else 0.0
         drift += lift + rng.gauss(0, jitter.spacing * size)
@@ -87,8 +98,22 @@ def render_text(
         # ---------------------------------------- place it on the line
         x = face.getlength(text[:i]) + drift
         y = rng.gauss(0, jitter.baseline * size)
-        canvas.paste(255, (round(x), round(y)), mask=glyph)
+        left, top = round(x), round(y)
+        canvas.paste(255, (left, top), mask=glyph)
         drift += lift
 
-    ink = canvas.crop(canvas.getbbox())
-    return ImageOps.invert(ImageOps.expand(ink, border=padding, fill=0))
+        # ---------------------------------------- grow the word's box
+        x0, y0, x1, y1 = glyph.getbbox()
+        box = (left + x0, top + y0, left + x1, top + y1)
+        starts_word = i == 0 or text[i - 1] == " "
+        if starts_word:
+            boxes.append(box)
+        else:
+            boxes[-1] = union(boxes[-1], box)
+
+    # Crop to the ink, then move the boxes to match
+    bbox = canvas.getbbox()
+    ink = canvas.crop(bbox)
+    dx, dy = padding - bbox[0], padding - bbox[1]
+    boxes = [(x0 + dx, y0 + dy, x1 + dx, y1 + dy) for x0, y0, x1, y1 in boxes]
+    return ImageOps.invert(ImageOps.expand(ink, border=padding, fill=0)), boxes

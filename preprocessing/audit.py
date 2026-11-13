@@ -8,7 +8,8 @@ dataset can be checked the same way. Run from the project root:
     uv run python -m preprocessing.audit combined-2026-11-12T10-04-33
 
 On a dataset that `build` wrote, everything under "defects" should be zero, and so should the
-samples on a grid and the samples whose lifts repeat a point. One artefact is left in on
+samples on a grid and the samples whose lifts repeat a point. The first defect is checked for
+synthetic samples only: they are the ones traced from an image. One artefact is left in on
 purpose: most IAM-OnDB strokes have 4k+1 points, because its whiteboard pen reported points
 four at a time. A model that counts can tell when a lift is possible. Taking it out would mean
 cutting real ink off the ends of strokes.
@@ -26,6 +27,7 @@ from preprocessing.dataset import Dataset, letter_size, split_of
 from preprocessing.defects import find_mismatches, stray_marks
 from preprocessing.dequantise import grid_of
 from preprocessing.lifts import lifts_repeat
+from preprocessing.marks import missing_marks, read_labels
 from synthetic.paths import CLEANED_DIR
 
 RARE = 50  # a character seen fewer times than this in training is unlikely to be learnt
@@ -68,7 +70,14 @@ def artefacts(samples: list[np.ndarray]) -> dict[str, str]:
 
 def defects(dataset: Dataset) -> dict[str, int]:
     reasons = Counter(find_mismatches(dataset).values())
+    labels = read_labels()
+    untraced = sum(
+        bool(missing_marks(sample, labels[text]))
+        for sample, text, source in zip(*dataset)
+        if source == "synthetic"
+    )
     return {
+        "its image has a small mark it does not": untraced,
         "a word is crossed out": reasons["a word is crossed out"],
         "the text runs onto a second row": reasons["the text runs onto a second row"],
         "the ink stops before the text does": reasons["the ink stops before the text does"],

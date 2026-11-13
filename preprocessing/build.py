@@ -11,20 +11,22 @@ The pipeline, from the recordings to the model:
 
 This step takes out what is in the recordings but is not handwriting, in this order:
 
-    1. defects       drops the samples whose ink is not what their text says
-    2. defects       removes stray marks from the samples that are kept
-    3. lifts         merges the point that DeepWriting repeats at every pen lift
-    4. dequantise    blurs DeepWriting's pixel grid
+    1. marks         puts back the small marks the synthetic samples lost in tracing
+    2. defects       drops the samples whose ink is not what their text says
+    3. defects       removes stray marks from the samples that are kept
+    4. lifts         merges the point that DeepWriting repeats at every pen lift
+    5. dequantise    blurs DeepWriting's pixel grid
 
-Steps 3 and 4 read the recordings as they were made, so the source must be a dataset that has
-not been through them. Run from the project root:
+Steps 4 and 5 read the recordings as they were made, so the source must be a dataset that has
+not been through them. Step 1 reads the synthetic images and their labels in `data/synthetic`. Run from the project root:
 
     uv run python -m preprocessing.build --seed 42
     uv run python -m preprocessing.build --source combined-2026-11-12T10-04-33
 
 It reads the newest `combined-*` dataset unless `--source` names another, and writes the
 dataset to `final-<timestamp>` with `report.json`, which says what was done to which sample
-(by its position in the source), and `dequantising.png`. `preprocessing.audit` checks the
+(by its position in the source), and two pictures to check it by: `restored-marks.png` and
+`dequantising.png`. `preprocessing.audit` checks the
 result.
 """
 
@@ -40,6 +42,7 @@ from preprocessing.dataset import Dataset
 from preprocessing.defects import BY_HAND, find_mismatches, stray_marks, without_strokes
 from preprocessing.dequantise import dequantise, grid_of, plot_comparison
 from preprocessing.lifts import lifts_repeat, merge_repeated_lifts
+from preprocessing.marks import missing_marks, plot_restored, read_labels, with_marks
 from synthetic.paths import CLEANED_DIR
 
 
@@ -53,6 +56,18 @@ def main(source: str | None, seed: int) -> None:
             "no sample is on a pixel grid, so this dataset has been dequantised already: "
             "name the dataset before it with --source"
         )
+
+    # ---------------------------------------- restore marks
+    labels = read_labels()
+    restored = {}
+    for i, source in enumerate(sources):
+        if source == "synthetic" and (marks := missing_marks(samples[i], labels[texts[i]])):
+            samples[i] = with_marks(samples[i], marks)
+            restored[i] = marks
+    print(
+        f"put back {sum(map(len, restored.values()))} small marks "
+        f"in {len(restored)} synthetic samples"
+    )
 
     # ---------------------------------------- drop mismatched samples
     reasons = find_mismatches(Dataset(samples, texts, sources), BY_HAND)
@@ -95,6 +110,7 @@ def main(source: str | None, seed: int) -> None:
         "source": source_dir.name,
         "seed": seed,
         "samples": {"read": len(texts), "written": len(kept)},
+        "marks_restored": {i: len(marks) for i, marks in restored.items()},
         "dropped": [{"position": i, "text": texts[i], "reason": reason} for i, reason in sorted(reasons.items())],
         "stray_marks_removed": sorted(marks),
         "lifts_merged": {"samples": len(repeating), "points": merged},
@@ -102,8 +118,12 @@ def main(source: str | None, seed: int) -> None:
     }
     (out / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
 
+    plot_restored(
+        [(texts[i], samples[i], marks) for i, marks in restored.items() if i in samples],
+        out / "restored-marks.png",
+    )
     plot_comparison(before, [samples[i] for i in grids], list(grids.values()), out / "dequantising.png")
-    print(f"saved {len(kept)} samples, report.json and dequantising.png to {out}")
+    print(f"saved {len(kept)} samples, report.json and two pictures to {out}")
 
 
 if __name__ == "__main__":

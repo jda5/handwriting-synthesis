@@ -8,9 +8,9 @@
 
 ## Strategy
 
-Generate synthetic data by sampling text snippets and using TrueType fonts (ttf), that mimic human handwriting, to render them as images. Then use Google's [InkSight](https://github.com/google-research/inksight) model to transform these images into online stokes, that we can use to fine-tune our handwriting synthesis model.
+Generate synthetic data by sampling text snippets and using TrueType fonts (ttf), that mimic human handwriting, to render them as images. Then use Google's [InkSight](https://github.com/google-research/inksight) model to transform these images into online strokes, that we can use to fine-tune our handwriting synthesis model.
 
-The number of synthetic examples must be signficantly smaller than the number of ground truth examples - approximately 10% of the total dataset, which at the time of writing is about 16,000 examples.
+The number of synthetic examples must be significantly smaller than the number of ground truth examples - approximately 10% of the total dataset, which at the time of writing is about 16,000 examples.
 
 This synthetic dataset should be composed of:
 
@@ -21,7 +21,8 @@ This synthetic dataset should be composed of:
 
 When rendering the texts as images we should add per-character jitters, small rotations, scale shifts, baseline shifts and spacing changes, to break the repetition of fonts.
 
-Not all fonts have glyphs for every character, and having looked at some renderings some fonts don't draw certain characters well - "E" seems to be particularly problematic. Perhaps we could get Jev to look at the images and give an assessment based on 
+Not all fonts have glyphs for every character, and having looked at some renderings some fonts don't draw certain characters well - "E" seems to be particularly problematic. Perhaps we could get Jev to look at the images and give an assessment of how legible each one is.
+
 ## Implementation
 
 The `synthetic` package holds one module per source of text, each offering a pool of

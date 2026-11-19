@@ -1,7 +1,7 @@
 [project]
 name = "handwriting-synthesis"
 version = "0.1.0"
-description = "Add your description here"
+description = "Handwriting synthesis with a Graves-style LSTM and Gaussian window attention, trained on IAM-OnDB, DeepWriting and InkSight-traced synthetic data"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
